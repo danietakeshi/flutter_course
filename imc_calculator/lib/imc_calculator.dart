@@ -68,3 +68,9 @@ String descriptionIMC(double imc) {
     return "";
   }
 }
+
+
+double arredondarParaDuasCasasDecimais(double numero) {
+  return double.parse(numero.toStringAsFixed(2));
+}
+

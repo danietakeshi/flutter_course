@@ -15,4 +15,10 @@ String description = imc_calculator.descriptionIMC(imc);
 print("Boa tarde ${pessoa.getNome()}! Considerando o peso de ${pessoa.getPeso()} e a altura de ${pessoa.getAltura()}.");
 print("Você tem um IMC calculado de $imc, ou seja, possui a classificação $description");
 
+double numero = 3.14159;
+double numeroArredondado = imc_calculator.arredondarParaDuasCasasDecimais(numero);
+
+print("Número original: $numero");
+print("Número arredondado: $numeroArredondado");
+
 }
