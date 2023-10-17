@@ -1,8 +1,32 @@
-import 'package:flutter/material.dart';
 
-void main() {
+import 'package:bmi_calculator/imc_sqlite_model.dart';
+import 'package:bmi_calculator/user_config_model.dart';
+import 'package:bmi_calculator/user_config_repository.dart';
+import 'package:bmi_calculator/sqlitedatabase.dart' as sql;
+
+import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import 'package:path_provider/path_provider.dart' as path_provider;
+
+
+import 'configuration_page.dart';
+import 'imc_sqlite_repository.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  var documentsDirectory = 'D:/';
+
+  Hive.init(documentsDirectory);
+
+  Hive.registerAdapter(DadosUsuarioModelAdapter());
+
+  sql.SQLiteDataBase().iniciarBancoDeDados();
+
   runApp(const BMICalculatorApp());
+
+  
 }
+
 
 class BMICalculatorApp extends StatelessWidget {
   const BMICalculatorApp({super.key});
@@ -26,24 +50,49 @@ class BMICalculator extends StatefulWidget {
 class _BMICalculatorState extends State<BMICalculator> {
   List<BMIData> bmiDataList = [];
 
+  MedidaIMCSQLiteRepository imcRepository = MedidaIMCSQLiteRepository();
+  var _tarefas = const <IMCSQLiteModel>[];
+
+  TextEditingController nameController = TextEditingController();
   TextEditingController heightController = TextEditingController();
   TextEditingController weightController = TextEditingController();
 
   void _calculateBMI() {
     double? height = double.tryParse(heightController.text);
     double? weight = double.tryParse(weightController.text);
+    String? name = nameController.text;
 
     if (height != null && weight != null) {
       double bmi = weight / (height * height);
       String bmiDesc = descriptionIMC(bmi);
-      BMIData data = BMIData(height, weight, bmi, bmiDesc);
+      BMIData data = BMIData(name, height, weight, bmi, bmiDesc);
+      IMCSQLiteModel medida = IMCSQLiteModel(100, name, height, weight, bmi, bmiDesc);
 
       setState(() {
+        imcRepository.salvar(medida);
         bmiDataList.add(data);
-        heightController.clear();
         weightController.clear();
+        carregarDados();
+        obterMedidas();
       });
     }
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+    carregarDados();
+    obterMedidas();
+  }
+
+  void obterMedidas() async {
+    _tarefas = await imcRepository.obterDados();
+    setState(() {});
+  }
+
+  salvarSQLite(BMIData lista) {
+    
   }
 
   String descriptionIMC(double bmi) {
@@ -68,6 +117,16 @@ class _BMICalculatorState extends State<BMICalculator> {
   }
 }
 
+carregarDados() async {
+    var dadosUsuarioRepository = await DadosUsuarioRepository.carregar();
+    var dadosUsuario = dadosUsuarioRepository.obterDados();
+    nameController.text = dadosUsuario.nome ?? "";
+    heightController.text = dadosUsuario.altura == null
+        ? ""
+        : dadosUsuario.altura.toString();
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -80,6 +139,11 @@ class _BMICalculatorState extends State<BMICalculator> {
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: <Widget>[
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Name'),
+                  keyboardType: TextInputType.name,
+                ),
                 TextField(
                   controller: heightController,
                   decoration: const InputDecoration(labelText: 'Height (m)'),
@@ -100,16 +164,30 @@ class _BMICalculatorState extends State<BMICalculator> {
           ),
           Expanded(
             child: ListView.builder(
-              itemCount: bmiDataList.length,
+              itemCount: _tarefas.length,
               itemBuilder: (context, index) {
+                var tarefa = _tarefas[index];
                 return ListTile(
-                  title: Text('Height: ${bmiDataList[index].height} m, Weight: ${bmiDataList[index].weight} kg'),
-                  subtitle: Text('BMI: ${bmiDataList[index].bmi.toStringAsFixed(2)} - ${bmiDataList[index].bmiDesc}'),
+                  title: Text('Name: ${tarefa.nome} | Height: ${tarefa.altura} m, Weight: ${tarefa.peso} kg'),
+                  subtitle: Text('BMI: ${tarefa.imc.toStringAsFixed(2)} - ${tarefa.imcDescricao}'),
                 );
               },
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          // Use Navigator to navigate to the 'configuration_page.dart' when the button is pressed.
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const ConfigurationPage(),
+            ),
+          ).then((value) => setState(() {
+            carregarDados();
+          },));
+        },
+        child: Icon(Icons.settings),
       ),
     );
   }
@@ -120,6 +198,7 @@ class BMIData {
   final double weight;
   final double bmi;
   final String bmiDesc;
+  final String name;
 
-  BMIData(this.height, this.weight, this.bmi, this.bmiDesc);
+  BMIData(this.name, this.height, this.weight, this.bmi, this.bmiDesc);
 }
